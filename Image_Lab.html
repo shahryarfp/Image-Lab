@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Image Lab — Operators, Noise & 2DFT (v1.0)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root{ --bg:#0b0f1a; --bg2:#121a2b; --ink:#eaf1ff; --sub:#a9b6d9; --card:rgba(255,255,255,.06);
+      --accent:#6be3ff; --accent2:#8a7dff; --ok:#36d399; --warn:#f7c948; --danger:#ff6b6b; --shadow:0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.04); }
+    *{box-sizing:border-box}
+    body{margin:0; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial; color:var(--ink);
+      background:radial-gradient(1200px 600px at 20% -10%, #1b2a52 0%, transparent 60%), radial-gradient(1200px 700px at 120% 20%, #2b1640 0%, transparent 60%), linear-gradient(180deg,#0b0f1a,#0b0f1a 50%,#0d1220 100%);}  
+    header{position:sticky; top:0; z-index:5; backdrop-filter:blur(10px); background:linear-gradient(180deg, rgba(14,18,31,.9), rgba(14,18,31,.6)); border-bottom:1px solid rgba(255,255,255,.06)}
+    .wrap{max-width:1300px; margin:0 auto; padding:16px 20px}
+    .title{display:flex; align-items:center; gap:14px}
+    .title h1{margin:0; font-size:20px; letter-spacing:.3px}
+    .badge{font-size:12px; padding:6px 10px; border-radius:999px; background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#0a0f18; font-weight:800}
+
+    .layout{display:grid; grid-template-columns:360px 1fr; gap:18px; padding:18px 20px; max-width:1300px; margin:0 auto}
+    @media (max-width:980px){.layout{grid-template-columns:1fr}}
+    .panel{background:var(--card); border:1px solid rgba(255,255,255,.07); border-radius:16px; box-shadow:var(--shadow)}
+    .panel .hd{padding:14px 16px; border-bottom:1px solid rgba(255,255,255,.06); display:flex; align-items:center; justify-content:space-between}
+    .panel .bd{padding:16px}
+
+    .drop{border:2px dashed rgba(255,255,255,.15); border-radius:14px; padding:18px; text-align:center; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:10px}
+    .drop:hover{border-color:rgba(255,255,255,.25)}
+    .drop input{display:none}
+    .ghost{opacity:.6; font-size:13px}
+
+    .controls{display:grid; gap:12px}
+    label{font-size:12px; color:var(--sub); display:block; margin:2px 0 6px}
+
+    select{width:100%; padding:10px 12px; border-radius:12px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.12); color:var(--ink); font-family:inherit; font-size:14px; color-scheme: dark;}
+    select option{ background: var(--bg2, #121a2b); }
+    select optgroup{ color: var(--ink); font-weight: bold; background: var(--bg2); }
+
+    .pattern-gen{display:grid; grid-template-columns:1fr auto; gap:10px; align-items:end;}
+    .pattern-extra{margin-top:8px;}
+    .pattern-extra input { width:100%; padding: 8px; border-radius: 8px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12); color: var(--ink); }
+
+    .range-item{display:grid; grid-template-columns: 1fr auto; align-items:center; gap:10px}
+    .range-wrap{display:grid; gap:6px}
+    input[type=range]{-webkit-appearance:none; width:100%; height:26px; background:transparent}
+    input[type=range]::-webkit-slider-runnable-track{height:6px; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:999px}
+    input[type=range]::-moz-range-track{height:6px; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:999px}
+    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:18px; height:18px; background:#fff; border-radius:50%; margin-top:-6px; box-shadow:0 2px 8px rgba(0,0,0,.35)}
+    input[type=range]::-moz-range-thumb{width:18px; height:18px; background:#fff; border-radius:50%; border:none; box-shadow:0 2px 8px rgba(0,0,0,.35)}
+    .val{font-variant-numeric:tabular-nums; font-size:12px; color:var(--ink); opacity:.9; padding:4px 8px; border:1px solid rgba(255,255,255,.12); border-radius:8px; background:rgba(255,255,255,.05)}
+
+    .btns{display:flex; flex-wrap:wrap; gap:10px; margin-top:8px}
+    button{cursor:pointer; border:none; padding:10px 12px; border-radius:12px; color:#0a0f18; background:linear-gradient(135deg,var(--accent),var(--accent2)); font-weight:800}
+    button.ghost{background:transparent; color:var(--ink); border:1px solid rgba(255,255,255,.14)}
+    button.warn{background:linear-gradient(135deg,var(--warn),#f1952b); color:#10131f}
+    button.danger{background:linear-gradient(135deg,var(--danger),#ff8c8c); color:#10131f}
+    .tiny{font-size:12px; opacity:.8; color: rgb(248, 151, 55)}
+
+    .stage{position:relative; padding:14px}
+    .canvas-wrap{position:relative; background:#0a0e19; border-radius:14px; overflow:hidden; border:1px solid rgba(255,255,255,.08)}
+    canvas{display:block; width:100%; height:auto}
+    .processed-layer{position:absolute; inset:0; overflow:hidden}
+    .processed-layer>canvas{position:absolute; inset:0}
+    .split{position:absolute; top:12px; left:50%; transform:translateX(-50%); background:var(--card); border:1px solid rgba(255,255,255,.12); padding:10px; border-radius:999px; box-shadow:var(--shadow); display:flex; align-items:center; gap:8px}
+
+    .viz{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px}
+    .viz canvas{background:#0b1120; border-radius:10px; border:1px solid rgba(255,255,255,.08)}
+
+    .footer{display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; padding:8px 0 0}
+    .pill{padding:8px 12px; border-radius:999px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); font-size:12px}
+
+    .details{margin-top:6px; padding:12px; border:1px solid rgba(255,255,255,.08); border-radius:12px; background:rgba(255,255,255,.04); display:grid; gap:10px}
+    .subhd{font-weight:700; font-size:12px; color:var(--sub); letter-spacing:.2px}
+    .eq{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px; background:rgba(0,0,0,.25); padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,.1)}
+    .kholder{display:flex; gap:12px; flex-wrap:wrap; align-items:center;}
+    .kgrid{--size:84px; display:grid; grid-template-columns:repeat(3,1fr); gap:4px; padding:6px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:10px}
+    .kgrid .cell{width:calc(var(--size)/3); height:calc(var(--size)/3); display:flex; align-items:center; justify-content:center; border-radius:8px; background:rgba(0,0,0,.25); border:1px solid rgba(255,255,255,.08); font-family:ui-monospace, monospace; font-size:12px}
+    .divisor-display{display:flex; flex-direction: column; align-items:center; justify-content:center; --size:84px; width:var(--size); height:var(--size); padding:6px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:50%; text-align:center; font-size:12px;}
+
+    .kedit{display:grid; grid-template-columns:repeat(3,1fr); gap:6px; padding:6px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:10px}
+    .kedit input{width:100%; text-align:center; padding:10px; border-radius:8px}
+    .kextras{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:8px}
+
+    .explain{margin-top:10px; padding:12px; border-radius:12px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.03); color:var(--sub); font-size:13px; line-height:1.45}
+
+    .dft{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap title">
+      <h1>Image Lab</h1>
+      <span class="badge">v1.0</span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="panel">
+      <div class="hd"><strong>Load image</strong></div>
+      <div class="bd">
+        <label class="drop" id="drop" for="file">
+          <input id="file" type="file" accept="image/*"/>
+          <div>
+            <div style="font-weight:800">Click to choose or drop an image</div>
+            <div class="ghost">PNG • JPG • JPEG • WEBP</div>
+          </div>
+        </label>
+
+        <div style="height:12px"></div>
+        <div class="subhd" style="margin-bottom:8px;">Or generate a pattern</div>
+        <div class="pattern-gen">
+          <select id="patternSelect">
+            <option value="vertical_stripes">Vertical Stripes</option>
+            <option value="horizontal_stripes">Horizontal Stripes</option>
+            <option value="tilted_stripes">Tilted Stripes</option>
+            <option value="grid">Grid</option>
+            <option value="large_circle">Large Centered Circle</option>
+            <option value="small_circle">Small Centered Circle</option>
+            <option value="large_square">Large Centered Square</option>
+            <option value="small_square">Small Centered Square</option>
+            <option value="sine_wave">Sine Wave</option>
+            <option value="diagonal">Diagonal Line</option>
+            <option value="two_circles">Two Circles (separated)</option>
+            <option value="offcenter_circle">Off-center Circle</option>
+            <option value="ring">Ring (annulus)</option>
+            <option value="checkerboard">Checkerboard</option>
+            <option value="gaussian_blob">Gaussian Blob</option>
+            <option value="rotated_square">Rotated Square (30°)</option>
+            <option value="delta_pair">Two Impulses (single pixels)</option>
+          </select>
+          <button id="generatePattern">Generate</button>
+        </div>
+        <div id="patternExtra" class="pattern-extra" style="display:none;">
+          <label for="stripeAngle">Angle (°)</label>
+          <input type="number" id="stripeAngle" value="30" step="5">
+        </div>
+
+        <div style="height:16px; border-bottom:1px solid rgba(255,255,255,.07); margin:16px 0;"></div>
+
+        <div class="controls" id="controls">
+          <div>
+            <label>Filter</label>
+            <select id="filterSelect"></select>
+          </div>
+
+          <div id="params"></div>
+
+          <div class="details">
+            <div class="subhd">Filter details</div>
+            <div id="equation" class="eq">—</div>
+            <div id="kholder" class="kholder"></div>
+          </div>
+
+          <div class="btns">
+            <button id="apply">Apply</button>
+            <button class="ghost" id="undo" title="Undo last">Undo</button>
+            <button class="ghost" id="redo" title="Redo">Redo</button>
+            <button class="warn" id="reset">Reset</button>
+          </div>
+          <div class="footer">
+            <span class="pill tiny">Tip: Use the slider on the image to compare</span>
+            <button class="ghost" id="download">Download</button>
+          </div>
+
+          <div id="explain" class="explain">Select an operator, add noise, or compute the 2D Fourier transform of the current image.</div>
+        </div>
+      </div>
+    </aside>
+
+    <section class="panel">
+      <div class="hd"><strong>Canvas</strong><span class="tiny" id="meta"></span></div>
+      <div class="bd stage">
+        <div class="canvas-wrap" id="canvasWrap">
+          <canvas id="original"></canvas>
+          <div class="processed-layer" id="processedLayer"><canvas id="processed"></canvas></div>
+          <div class="split">
+            <span class="tiny">Compare</span>
+            <input id="split" type="range" min="0" max="100" value="50"/>
+          </div>
+        </div>
+        <div class="viz">
+          <div>
+            <label>Original histogram (RGB)</label>
+            <canvas id="histOriginal" height="130"></canvas>
+          </div>
+          <div>
+            <label>Processed histogram (RGB)</label>
+            <canvas id="histProcessed" height="130"></canvas>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <label>Transfer curve</label>
+          <canvas id="lutPlot" height="130"></canvas>
+        </div>
+        <div class="dft">
+          <div>
+            <div style="display:flex; align-items:center; gap:8px; justify-content:space-between">
+              <label>2DFT Amplitude (centered)</label>
+              <div style="display:flex; align-items:center; gap:8px">
+                <select id="dftScale">
+                  <option value="linear" selected>Simple view</option>
+                  <option value="log">Log view</option>
+                </select>
+                <button class="ghost" id="btnDFT">Compute 2DFT</button>
+              </div>
+            </div>
+            <canvas id="fftAmp" width="220" height="220"></canvas>
+          </div>
+          <div>
+            <label>2DFT Phase (−π .. π)</label>
+            <canvas id="fftPhase" width="220" height="220"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+  // ===== Utilities =====
+  const $ = (sel) => document.querySelector(sel);
+  const fileInput = $('#file'); const drop = $('#drop');
+  const originalCanvas = $('#original'); const processedCanvas = $('#processed');
+  const processedLayer = $('#processedLayer'); const split = $('#split');
+  const filterSelect = $('#filterSelect'); const paramsBox = $('#params');
+  const meta = $('#meta'); const histO = $('#histOriginal'); const histP = $('#histProcessed'); const lutPlot = $('#lutPlot');
+  const equation = $('#equation'); const kholder = $('#kholder'); const explain = $('#explain');
+  const ctxO = originalCanvas.getContext('2d'); const ctxP = processedCanvas.getContext('2d');
+  const ctxHO = histO.getContext('2d'); const ctxHP = histP.getContext('2d'); const ctxLUT = lutPlot.getContext('2d');
+  const fftAmp = $('#fftAmp'); const fftPhase = $('#fftPhase'); const ctxFA = fftAmp.getContext('2d'); const ctxFP = fftPhase.getContext('2d');
+  const patternSelect = $('#patternSelect'); const patternExtra = $('#patternExtra'); const stripeAngleInput = $('#stripeAngle'); const dftScale = $('#dftScale');
+
+  let state = { img:null, originalData:null, currentData:null, undo:[], redo:[], lut:null, dft:null };
+
+  function info(msg){ meta.textContent = ' — '+msg; }
+  function clamp(v, min=0, max=255){ return v<min?min:(v>max?max:v); }
+  function toGray(r,g,b){ return 0.299*r + 0.587*g + 0.114*b; }
+  function setCanvasSize(w,h){ [originalCanvas,processedCanvas].forEach(c=>{c.width=w;c.height=h}); setSplit(split.value); }
+  function drawImage(img){ setCanvasSize(img.naturalWidth,img.naturalHeight); ctxO.drawImage(img,0,0); ctxP.drawImage(img,0,0); state.originalData = ctxO.getImageData(0,0,originalCanvas.width,originalCanvas.height); state.currentData = ctxP.getImageData(0,0,processedCanvas.width,processedCanvas.height); state.undo=[]; state.redo=[]; redrawHistograms(); drawLUT(null); clearDFT(); info(`${img.naturalWidth}×${img.naturalHeight}px — ${Math.round((img.naturalWidth*img.naturalHeight)/1e6*100)/100} MP`); }
+  function loadFile(file){ if(!file) return; const img = new Image(); img.onload = ()=>{ state.img=img; drawImage(img); }; img.onerror=()=>alert('Could not load that file. Please try an image.'); img.src = URL.createObjectURL(file); }
+
+  ;['dragenter','dragover'].forEach(evt=> drop.addEventListener(evt, e=>{ e.preventDefault(); drop.style.borderColor='rgba(255,255,255,.35)'; }));
+  ;['dragleave','drop'].forEach(evt=> drop.addEventListener(evt, e=>{ e.preventDefault(); drop.style.borderColor='rgba(255,255,255,.15)'; }));
+  drop.addEventListener('drop', e=>{ const f = e.dataTransfer.files?.[0]; loadFile(f); }); drop.addEventListener('mousedown', () => { fileInput.value = ''; });fileInput.addEventListener('change', e => loadFile(e.target.files?.[0])); fileInput.addEventListener('change', e=> loadFile(e.target.files?.[0]));
+
+  function getImageData(canvas){ return canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height); }
+  function putImageData(canvas,data){ canvas.getContext('2d').putImageData(data,0,0); }
+  function pushUndo(){ if(!state.currentData) return; state.undo.push(new ImageData(new Uint8ClampedArray(state.currentData.data), state.currentData.width, state.currentData.height)); if(state.undo.length>30) state.undo.shift(); state.redo.length=0; }
+  function doUndo(){ if(state.undo.length){ state.redo.push(state.currentData); state.currentData = state.undo.pop(); putImageData(processedCanvas,state.currentData); redrawHistograms(); }}
+  function doRedo(){ if(state.redo.length){ state.undo.push(state.currentData); state.currentData = state.redo.pop(); putImageData(processedCanvas,state.currentData); redrawHistograms(); }}
+  $('#undo').addEventListener('click', doUndo); $('#redo').addEventListener('click', doRedo); $('#reset').addEventListener('click', ()=>{ if(!state.img) return; drawImage(state.img); });
+  function setSplit(val){ processedLayer.style.width = val+'%'; } split.addEventListener('input', (e)=> setSplit(e.target.value));
+
+  // ===== Histograms & LUT plot with axes =====
+  function computeHistogram(imgData){ const R=new Uint32Array(256),G=new Uint32Array(256),B=new Uint32Array(256); const d=imgData.data; for(let i=0;i<d.length;i+=4){ R[d[i]]++; G[d[i+1]]++; B[d[i+2]]++; } return {R,G,B}; }
+  function drawAxes(ctx, withYMax){ const w=ctx.canvas.width,h=ctx.canvas.height; ctx.save(); ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.fillStyle='rgba(255,255,255,.6)'; ctx.lineWidth=1;
+    ctx.strokeRect(0.5,0.5,w-1,h-1);
+    ctx.font='10px Inter,Arial'; ctx.textBaseline='top';
+    const xt=[0,64,128,192,255]; xt.forEach(x=>{ const px = x*((w-1)/255); if(x===0) ctx.textAlign='left'; else if(x===255) ctx.textAlign='right'; else ctx.textAlign='center';
+      ctx.beginPath(); ctx.moveTo(px, h-10); ctx.lineTo(px, h-1); ctx.stroke(); ctx.fillText(String(x), px, h-12); });
+    ctx.textAlign='left'; ctx.textBaseline='middle';
+    for(let i=0;i<=4;i++){ const y=h - (i*(h-1)/4); ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(6,y); ctx.stroke(); if(withYMax && withYMax>0){ if(i===4) ctx.textBaseline='top'; else if(i===0) ctx.textBaseline='bottom'; else ctx.textBaseline='middle'; const lab = Math.round((i/4)*100)+'%'; ctx.fillText(lab, 8, y); }
+    }
+  ctx.restore(); }
+  function drawHistogram(ctx,hist){ const w=ctx.canvas.width,h=ctx.canvas.height; ctx.clearRect(0,0,w,h); ctx.fillStyle='#0a0e19'; ctx.fillRect(0,0,w,h);
+    const max=Math.max(hist.R.reduce((a,b)=>a>b?a:b,0), hist.G.reduce((a,b)=>a>b?a:b,0), hist.B.reduce((a,b)=>a>b?a:b,0));
+    const bar=(w-1)/255;
+    ctx.strokeStyle='rgba(255,255,255,.08)'; ctx.lineWidth=1; for(let i=0;i<5;i++){ const y=h-(i*(h-1)/4); ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+    function ch(arr,col){ ctx.beginPath(); ctx.strokeStyle=col; ctx.lineWidth=1.5; for(let x=0;x<256;x++){ const v=arr[x]/max; const y=h-1 - v*(h-1); const px=x*bar; if(x===0) ctx.moveTo(px,y); else ctx.lineTo(px,y);} ctx.stroke(); }
+    ch(hist.R,'rgba(255,120,120,.95)'); ch(hist.G,'rgba(120,255,160,.95)'); ch(hist.B,'rgba(120,170,255,.95)');
+    drawAxes(ctx, max);
+  }
+  function drawLUT(lut){ const ctx=ctxLUT,w=ctx.canvas.width,h=ctx.canvas.height; ctx.clearRect(0,0,w,h); ctx.fillStyle='#0a0e19'; ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.strokeRect(0.5,0.5,w-1,h-1);
+    ctx.font='10px Inter,Arial'; ctx.fillStyle='rgba(255,255,255,.7)'; ctx.textAlign='center'; ctx.fillText('Input level (0→255)', w/2, h-14);
+    ctx.save(); ctx.rotate(-Math.PI/2); ctx.textAlign='center'; ctx.fillText('Output level (0→255)', -h/2, 10); ctx.restore();
+    const xt=[0,64,128,192,255]; const yt=[0,64,128,192,255];
+    xt.forEach(x=>{ const px=x*((w-1)/256); if(x===0) ctx.textAlign='left'; else if(x===255) ctx.textAlign='right'; else ctx.textAlign='center'; ctx.beginPath(); ctx.moveTo(px,h-8); ctx.lineTo(px,h-1); ctx.stroke(); ctx.fillText(String(x), px, h-12); });
+    yt.forEach(yv=>{ const py=h-1 - yv*((h-1)/256); if(yv===0) ctx.textBaseline='bottom'; else if(yv===255) ctx.textBaseline='top'; else ctx.textBaseline='middle'; ctx.beginPath(); ctx.moveTo(0,py); ctx.lineTo(8,py); ctx.stroke(); ctx.textAlign='left'; ctx.fillText(String(yv), 12, py); });
+    if(!lut){ ctx.fillStyle='rgba(255,255,255,.25)'; ctx.textAlign='center'; ctx.fillText('— No LUT to plot —', w/2, 12); return; }
+    ctx.strokeStyle='white'; ctx.lineWidth=2; ctx.beginPath(); for(let x=0;x<256;x++){ const yNorm=lut[x]/255; const y=h-1-yNorm*(h-1); const px=x*((w-1)/256); if(x===0) ctx.moveTo(px,y); else ctx.lineTo(px,y);} ctx.stroke();
+  }
+  function redrawHistograms(){ if(!state.currentData) return; drawHistogram(ctxHO, computeHistogram(state.originalData)); drawHistogram(ctxHP, computeHistogram(state.currentData)); }
+
+  // ===== Operators & Filters =====
+  const Filters = {
+    'Negative (point)': { group:'Point operators', params: [], apply: (img)=> applyLUT(img, buildLUT(v=>255-v)) },
+    'Brightness / Contrast (u = a·v + b)': { group:'Point operators', params:[ {key:'a',label:'Contrast (a)', type:'range', min:0, max:3, step:0.01, value:1}, {key:'b',label:'Brightness (b)', type:'range', min:-128, max:128, step:1, value:0} ], apply:(img,p)=> applyLUT(img, buildLUT(v=> clamp(p.a*v + p.b))) },
+    'Gamma (power law)': { group:'Point operators', params:[ {key:'g',label:'Gamma (γ)', type:'range', min:0.1, max:5, step:0.01, value:1} ], apply:(img,p)=> applyLUT(img, buildLUT(v=> clamp(255*Math.pow(v/255, p.g)))) },
+    'Logarithmic': { group:'Point operators', params:[], apply:(img)=> applyLUT(img, buildLUT(v=> clamp(255 * (Math.log(1+v)/Math.log(256)) ))) },
+    'Thresholding (binary)': { group:'Point operators', params:[ {key:'t',label:'Threshold', type:'range', min:0, max:255, step:1, value:128} ], apply:(img,p)=> threshold(img,p.t) },
+    'Gray‑level slicing': { group:'Point operators', params:[ {key:'t1',label:'Lower',type:'range',min:0,max:255,step:1,value:80}, {key:'t2',label:'Upper',type:'range',min:0,max:255,step:1,value:170}, {key:'keep',label:'Keep outside (instead of 0)', type:'checkbox', value:true} ], apply:(img,p)=> sliceRange(img,p.t1,p.t2,p.keep) },
+    'Contrast stretching [a,b]→[0,255]': { group:'Point operators', params:[ {key:'a',label:'Low (a)',type:'number',min:0,max:255,step:1,value:30}, {key:'b',label:'High (b)',type:'number',min:0,max:255,step:1,value:220} ], apply:(img,p)=> applyLUT(img, buildLUT(v=> (v<p.a?0:(v>p.b?255: Math.round((v-p.a)*255/(p.b-p.a)))) )) },
+    'Histogram equalization (luminance)': { group:'Histogram ops', params:[], apply:(img)=> histEqLuma(img) },
+    'Add Gaussian noise (σ)': { group:'Noise', params:[{key:'sigma',label:'Sigma (σ)',type:'range',min:0,max:60,step:1,value:15}], apply:(img,p)=> addGaussian(img,p.sigma) },
+    'Add salt & pepper (p)': { group:'Noise', params:[{key:'p',label:'Probability',type:'range',min:0,max:0.2,step:0.005,value:0.02}], apply:(img,p)=> addSaltPepper(img,p.p) },
+    'Add speckle (σ%)': { group:'Noise', params:[{key:'s',label:'Strength',type:'range',min:0,max:0.6,step:0.01,value:0.15}], apply:(img,p)=> addSpeckle(img,p.s) },
+    'Add uniform noise (±A)': { group:'Noise', params:[{key:'A',label:'Amplitude',type:'range',min:0,max:80,step:1,value:20}], apply:(img,p)=> addUniform(img,p.A) },
+    'Mean blur (3×3)': { group:'Local filters', params:[], apply:(img)=> convolve(img,[1,1,1,1,1,1,1,1,1],9) },
+    'Gaussian blur (3×3)': { group:'Local filters', params:[], apply:(img)=> convolve(img,[1,2,1,2,4,2,1,2,1],16) },
+    'Median (3×3)': { group:'Local filters', params:[], apply:(img)=> median3(img) },
+    'Sharpen (Laplacian mix)': { group:'Local filters', params:[ {key:'amount',label:'Amount',type:'range',min:0, max:2, step:0.05, value:0.7} ], apply:(img,p)=> sharpen(img,p.amount) },
+    'Sobel edges (|∇f|)': { group:'Edge detectors', params:[], apply:(img)=> sobel(img) },
+    'Prewitt edges (|∇f|)': { group:'Edge detectors', params:[], apply:(img)=> prewitt(img) },
+    'Laplacian (8‑neigh)': { group:'Edge detectors', params:[], apply:(img)=> laplacian(img) },
+    'Custom 3×3 kernel': { group:'Advanced', layout:'kernel3x3', params:[
+        {key:'k00',label:'k00',type:'number',step:0.1,value:0}, {key:'k01',label:'k01',type:'number',step:0.1,value:-1}, {key:'k02',label:'k02',type:'number',step:0.1,value:0},
+        {key:'k10',label:'k10',type:'number',step:0.1,value:-1}, {key:'k11',label:'k11',type:'number',step:0.1,value:5}, {key:'k12',label:'k12',type:'number',step:0.1,value:-1},
+        {key:'k20',label:'k20',type:'number',step:0.1,value:0}, {key:'k21',label:'k21',type:'number',step:0.1,value:-1}, {key:'k22',label:'k22',type:'number',step:0.1,value:0},
+        {key:'div',label:'Divisor',type:'number',step:0.1,value:1}, {key:'off',label:'Offset',type:'number',step:1,value:0}
+      ], apply:(img,p)=> convolve(img,[p.k00,p.k01,p.k02,p.k10,p.k11,p.k12,p.k20,p.k21,p.k22], p.div||1, p.off||0) },
+  };
+
+  const Meta = {
+    'Add Gaussian noise (σ)': { eq:'u = v + N(0, σ²)', explain:'Adds zero‑mean Gaussian noise independently to RGB channels and clamps to [0,255].' },
+    'Add salt & pepper (p)': { eq:'u = 0 or 255 with prob. p/2 each', explain:'Randomly flips pixels to black/white with probability p. Great for testing median filters.' },
+    'Add speckle (σ%)': { eq:'u = v · (1 + n),  n~N(0, σ²)', explain:'Multiplicative noise often seen in ultrasound/SAR. Strength controls σ.' },
+    'Add uniform noise (±A)': { eq:'u = v + U(−A, A)', explain:'Adds uniform noise in a symmetric range.' },
+  };
+
+  function kToGrid(arr){ const m=[[arr[0],arr[1],arr[2]],[arr[3],arr[4],arr[5]],[arr[6],arr[7],arr[8]]]; return m; }
+  function renderKernelGrid(matrix){ const grid=document.createElement('div'); grid.className='kgrid'; matrix.flat().forEach(v=>{ const cell=document.createElement('div'); cell.className='cell'; cell.textContent=(Math.abs(v)%1?Number(v).toFixed(2):v); grid.appendChild(cell); }); return grid; }
+  function updateDetails(){ const name = filterSelect.value; const m = (Meta[name]||MetaV2[name]||{}); equation.textContent = m.eq||MetaV2[name]?.eq||'—'; kholder.innerHTML='';
+    if(m.kernel){ kholder.appendChild(renderKernelGrid(m.kernel)); if(m.divisor){ const tag=document.createElement('div'); tag.className='divisor-display'; tag.innerHTML = `Divisor<br>${m.divisor}`; kholder.appendChild(tag); } }
+    if(m.kernels){ const [kx,ky]=m.kernels; const g1=renderKernelGrid(kToGrid(kx)); const g2=renderKernelGrid(kToGrid(ky)); kholder.appendChild(g1); kholder.appendChild(g2); }
+    if(name==='Custom 3×3 kernel'){ const vals = [...paramsBox.querySelectorAll('.kedit input')].map(i=> parseFloat(i.value||'0')); const grid = renderKernelGrid(kToGrid(vals)); kholder.appendChild(grid); const div = parseFloat(paramsBox.querySelector('#param_div')?.value||'1'); const off = parseFloat(paramsBox.querySelector('#param_off')?.value||'0'); const tag=document.createElement('div'); tag.className='divisor-display'; tag.innerHTML=`Div=${div}<br>Off=${off}`; kholder.appendChild(tag); }
+    explain.textContent = m.explain || MetaV2[name]?.explain || '—';
+  }
+
+  const MetaV2 = {
+    'Negative (point)': { eq:'u = 255 − v', explain:'Inverts intensities for each channel.' },
+    'Brightness / Contrast (u = a·v + b)': { eq:'u = a·v + b  (clamped to [0,255])', explain:'Linear point operator.' },
+    'Gamma (power law)': { eq:'u = 255 · (v/255)^γ', explain:'Nonlinear tone mapping.' },
+    'Logarithmic': { eq:'u = 255 · log(1+v) / log(256)', explain:'Expands dark tones and compresses highlights.' },
+    'Thresholding (binary)': { eq:'u = (Y>t) ? 255 : 0, where Y is luminance', explain:'Binarizes luminance.' },
+    'Gray‑level slicing': { eq:'u = 255 if t1 ≤ Y ≤ t2 else 0 (or keep outside)', explain:'Highlights a luminance band.' },
+    'Contrast stretching [a,b]→[0,255]': { eq:'u = 0 for v<a; u = 255 for v>b; else u = 255·(v−a)/(b−a)', explain:'Rescales input range.' },
+    'Histogram equalization (luminance)': { eq:'u = H_cdf(Y)', explain:'Redistributes luminance histogram.' },
+    'Mean blur (3×3)': { eq:'u = (1/9) · Σ neighborhood', kernel:[[1,1,1],[1,1,1],[1,1,1]], divisor:9, explain:'Averaging filter.' },
+    'Gaussian blur (3×3)': { eq:'u = (1/16) · K ⊗ I', kernel:[[1,2,1],[2,4,2],[1,2,1]], divisor:16, explain:'Approximate Gaussian blur.' },
+    'Median (3×3)': { eq:'u = median(neighborhood)', explain:'Removes salt‑and‑pepper.' },
+    'Sharpen (Laplacian mix)': { eq:'sharp = I - (I ⊗ G)', kernel:[[1,2,1],[2,4,2],[1,2,1]], divisor:16, explain:'Unsharp masking. The sharpened image is I + amount * (I - blurred(I)). The kernel shown is for the blur step.' },
+    'Sobel edges (|∇f|)': { eq:'|∇f| = √( (Kx⊗Y)^2 + (Ky⊗Y)^2 )', kernels:[[-1,0,1,-2,0,2,-1,0,1], [-1,-2,-1,0,0,0,1,2,1]], explain:'3×3 gradient operator.' },
+    'Prewitt edges (|∇f|)': { eq:'|∇f| = √( (Kx⊗Y)^2 + (Ky⊗Y)^2 )', kernels:[[-1,0,1,-1,0,1,-1,0,1], [-1,-1,-1,0,0,0,1,1,1]], explain:'Simpler gradient operator.' },
+    'Laplacian (8‑neigh)': { eq:'u = K ⊗ Y', kernel:[[-1,-1,-1],[-1,8,-1],[-1,-1,-1]], explain:'Second derivative operator.' },
+    'Custom 3×3 kernel': { eq:'u = (K ⊗ I)/div + off', explain:'Design any 3×3 linear filter.' }
+  };
+
+  function populateFilterSelect(){ const groups={}; Object.entries(Filters).forEach(([name,spec])=>{ (groups[spec.group] ||= []).push({name,spec}); }); filterSelect.innerHTML=''; Object.entries(groups).forEach(([g,items])=>{ const optgroup=document.createElement('optgroup'); optgroup.label=g; items.forEach(it=>{ const o=document.createElement('option'); o.value=it.name; o.textContent=it.name; optgroup.appendChild(o); }); filterSelect.appendChild(optgroup); }); filterSelect.value='Brightness / Contrast (u = a·v + b)'; renderParams(Filters[filterSelect.value]); updateDetails(); }
+
+  function renderParams(spec){ paramsBox.innerHTML=''; if(!spec||!spec.params) { updateDetails(); return; }
+    const rowEls=[]; spec.params.forEach((p)=>{
+      const id='param_'+p.key; const wrap=document.createElement('div');
+      if(p.type==='range'){
+        wrap.className='range-wrap'; const lab=document.createElement('label'); lab.textContent=p.label; lab.setAttribute('for',id);
+        const rwrap=document.createElement('div'); rwrap.className='range-item';
+        const input=document.createElement('input'); input.id=id; input.type='range'; if(p.min!=null) input.min=p.min; if(p.max!=null) input.max=p.max; if(p.step!=null) input.step=p.step; input.value=p.value;
+        const out=document.createElement('span'); out.className='val'; out.textContent=formatVal(p, input.value);
+        input.addEventListener('input',()=>{ out.textContent = formatVal(p, input.value); updateDetails(); });
+        rwrap.appendChild(input); rwrap.appendChild(out); wrap.appendChild(lab); wrap.appendChild(rwrap);
+        paramsBox.appendChild(wrap);
+      } else {
+        const lab=document.createElement('label'); lab.textContent=p.label; lab.setAttribute('for',id);
+        let input=document.createElement('input'); input.id=id; input.type=p.type||'number'; if(p.type==='checkbox'){ input.checked=!!p.value; } else { if(p.min!=null) input.min=p.min; if(p.max!=null) input.max=p.max; if(p.step!=null) input.step=p.step; input.value=p.value; }
+        input.addEventListener('input', updateDetails);
+        wrap.appendChild(lab); wrap.appendChild(input); paramsBox.appendChild(wrap); rowEls.push(wrap);
+      }
+    });
+    if(spec.layout==='kernel3x3'){
+      const cellWraps = Array.from(paramsBox.children).slice(0,9); const grid=document.createElement('div'); grid.className='kedit';
+      cellWraps.forEach(w=>{ const inp = w.querySelector('input'); w.innerHTML=''; inp.style.textAlign='center'; grid.appendChild(inp); });
+      paramsBox.prepend(grid); const extras=document.createElement('div'); extras.className='kextras'; extras.appendChild(paramsBox.querySelector('#param_div').parentElement); extras.appendChild(paramsBox.querySelector('#param_off').parentElement); paramsBox.appendChild(extras);
+    }
+  }
+  function formatVal(p, v){ const n=Number(v); const step=p.step||1; const dec = (step<1)? String(step).split('.')[1]?.length||0 : 0; return n.toFixed(Math.min(dec,4)); }
+
+  filterSelect.addEventListener('change', ()=>{ const spec=Filters[filterSelect.value]; renderParams(spec); state.lut=null; drawLUT(null); updateDetails(); });
+  function getParamsForCurrent(){ const spec=Filters[filterSelect.value]; const params={}; (spec.params||[]).forEach(p=>{ const el=document.getElementById('param_'+p.key); params[p.key] = (p.type==='checkbox')? el.checked : (el.type==='range' || el.type==='number'? (el.valueAsNumber ?? parseFloat(el.value)) : el.value); }); return params; }
+
+  $('#apply').addEventListener('click', ()=>{ if(!state.currentData){ alert('Please load an image first.'); return; } const spec=Filters[filterSelect.value]; const params=getParamsForCurrent(); pushUndo(); state.currentData = spec.apply(state.currentData, params); putImageData(processedCanvas,state.currentData); redrawHistograms(); clearDFT(); });
+  $('#download').addEventListener('click', ()=>{ const link=document.createElement('a'); link.download='processed.png'; link.href=processedCanvas.toDataURL('image/png'); link.click(); });
+
+  // ===== Implementations =====
+  function buildLUT(fn){ const lut=new Uint8ClampedArray(256); for(let i=0;i<256;i++){ lut[i]= clamp(fn(i)); } state.lut=lut; drawLUT(lut); return lut; }
+  function applyLUT(imgData,lut){ const d=imgData.data; const out=new ImageData(new Uint8ClampedArray(d), imgData.width, imgData.height); const o=out.data; for(let i=0;i<o.length;i+=4){ o[i]=lut[o[i]]; o[i+1]=lut[o[i+1]]; o[i+2]=lut[o[i+2]]; } return out; }
+  function threshold(imgData,t){ const d=imgData.data; const out=new ImageData(new Uint8ClampedArray(d), imgData.width, imgData.height); const o=out.data; for(let i=0;i<o.length;i+=4){ const y=toGray(o[i],o[i+1],o[i+2]); const v=y>t?255:0; o[i]=o[i+1]=o[i+2]=v; } return out; }
+  function sliceRange(imgData,t1,t2,keepOutside){ if(t1>t2){const tmp=t1;t1=t2;t2=tmp;} const d=imgData.data; const out=new ImageData(new Uint8ClampedArray(d), imgData.width, imgData.height); const o=out.data; for(let i=0;i<o.length;i+=4){ const y=toGray(o[i],o[i+1],o[i+2]); if(y>=t1 && y<=t2){ o[i]=o[i+1]=o[i+2]=255; } else if(!keepOutside){ o[i]=o[i+1]=o[i+2]=0; } } return out; }
+  function histEqLuma(imgData){ const w=imgData.width,h=imgData.height; const d=imgData.data; const n=(d.length/4)|0; const hist=new Uint32Array(256); const luma=new Uint8Array(n); for(let i=0,j=0;i<d.length;i+=4,j++){ const y=clamp(Math.round(toGray(d[i],d[i+1],d[i+2]))); luma[j]=y; hist[y]++; } const cdf=new Float32Array(256); let c=0; for(let i=0;i<256;i++){ c+=hist[i]; cdf[i]=c; } const cdfMin = cdf.find(v=>v>0)||0; const scale = 255/(n - cdfMin); const map=new Uint8ClampedArray(256); for(let i=0;i<256;i++){ map[i]= clamp(Math.round((cdf[i]-cdfMin)*scale)); } const out=new ImageData(new Uint8ClampedArray(d), w,h); const o=out.data; for(let i=0,px=0;i<o.length;i+=4,px++){ const yOld=luma[px]; const yNew=map[yOld]; const r=o[i],g=o[i+1],b=o[i+2]; const y=toGray(r,g,b)||1e-6; const ratio=yNew/y; o[i]=clamp(Math.round(r*ratio)); o[i+1]=clamp(Math.round(g*ratio)); o[i+2]=clamp(Math.round(b*ratio)); } state.lut=null; drawLUT(null); return out; }
+  function convolve(imgData,k,div=1,offset=0){ const w=imgData.width,h=imgData.height; const src=imgData.data; const out=new ImageData(w,h); const dst=out.data; const get=(x,y,chan)=>{ x = x<0?0:(x>=w?w-1:x); y = y<0?0:(y>=h?h-1:y); return src[(y*w + x)*4 + chan]; }; for(let y=0;y<h;y++){ for(let x=0;x<w;x++){ for(let c=0;c<3;c++){ let sum=0, idx=0; for(let j=-1;j<=1;j++){ for(let i=-1;i<=1;i++){ sum += k[idx++] * get(x+i,y+j,c); } } const v=clamp(Math.round(sum/div + offset)); dst[(y*w+x)*4 + c]=v; } dst[(y*w+x)*4 + 3] = src[(y*w+x)*4 + 3]; } } state.lut=null; drawLUT(null); return out; }
+  function median3(imgData){ const w=imgData.width,h=imgData.height; const s=imgData.data; const out=new ImageData(w,h); const d=out.data; const get=(x,y,chan)=>{ x = x<0?0:(x>=w?w-1:x); y = y<0?0:(y>=h?h-1:y); return s[(y*w + x)*4 + chan]; }; const buf=new Uint8Array(9); for(let y=0;y<h;y++){ for(let x=0;x<w;x++){ for(let c=0;c<3;c++){ let t=0; for(let j=-1;j<=1;j++){ for(let i=-1;i<=1;i++){ buf[t++]=get(x+i,y+j,c); } } for(let i=0;i<5;i++){ let min=i; for(let j=i+1;j<9;j++){ if(buf[j]<buf[min]) min=j; } const tmp=buf[i]; buf[i]=buf[min]; buf[min]=tmp; } d[(y*w+x)*4 + c] = buf[4]; } d[(y*w+x)*4 + 3] = s[(y*w+x)*4 + 3]; } } state.lut=null; drawLUT(null); return out; }
+  function sobel(imgData){ const w=imgData.width,h=imgData.height; const s=imgData.data; const out=new ImageData(w,h); const d=out.data; const get=(x,y,chan)=>{ x = x<0?0:(x>=w?w-1:x); y = y<0?0:(y>=h?h-1:y); return s[(y*w + x)*4 + chan]; }; const gxK=[-1,0,1,-2,0,2,-1,0,1]; const gyK=[-1,-2,-1,0,0,0,1,2,1]; for(let y=0;y<h;y++){ for(let x=0;x<w;x++){ let gx=0, gy=0; let idx=0; for(let j=-1;j<=1;j++){ for(let i=-1;i<=1;i++){ const r=get(x+i,y+j,0), g=get(x+i,y+j,1), b=get(x+i,y+j,2); const Y=toGray(r,g,b); gx += gxK[idx]*Y; gy += gyK[idx]*Y; idx++; } } const m=clamp(Math.sqrt(gx*gx + gy*gy)); const off=(y*w+x)*4; d[off]=d[off+1]=d[off+2]=m; d[off+3]=255; } } state.lut=null; drawLUT(null); return out; }
+  function prewitt(imgData){ const w=imgData.width,h=imgData.height; const s=imgData.data; const out=new ImageData(w,h); const d=out.data; const get=(x,y,chan)=>{ x = x<0?0:(x>=w?w-1:x); y = y<0?0:(y>=h?h-1:y); return s[(y*w + x)*4 + chan]; }; const gxK=[-1,0,1,-1,0,1,-1,0,1]; const gyK=[-1,-1,-1,0,0,0,1,1,1]; for(let y=0;y<h;y++){ for(let x=0;x<w;x++){ let gx=0, gy=0; let idx=0; for(let j=-1;j<=1;j++){ for(let i=-1;i<=1;i++){ const r=get(x+i,y+j,0), g=get(x+i,y+j,1), b=get(x+i,y+j,2); const Y=toGray(r,g,b); gx += gxK[idx]*Y; gy += gyK[idx]*Y; idx++; } } const m=clamp(Math.sqrt(gx*gx + gy*gy)); const off=(y*w+x)*4; d[off]=d[off+1]=d[off+2]=m; d[off+3]=255; } } state.lut=null; drawLUT(null); return out; }
+  function laplacian(imgData){ return convolve(imgData, [-1,-1,-1,-1,8,-1,-1,-1,-1], 1, 0); }
+  function sharpen(imgData,amount=0.7){ const blurred = convolve(imgData,[1,2,1,2,4,2,1,2,1],16); const w=imgData.width,h=imgData.height; const s=imgData.data; const b=blurred.data; const out=new ImageData(w,h); const d=out.data; for(let i=0;i<s.length;i+=4){ for(let c=0;c<3;c++){ const orig=s[i+c]; const bl=b[i+c]; d[i+c]=clamp(Math.round(orig + amount * (orig - bl))); } d[i+3]=s[i+3]; } state.lut=null; drawLUT(null); return out; }
+
+  // ===== Noise implementations =====
+  function addGaussian(imgData, sigma){ const w=imgData.width,h=imgData.height; const s=imgData.data; const out=new ImageData(new Uint8ClampedArray(s), w,h); const d=out.data; function randn(){ let u=0,v=0; while(u===0) u=Math.random(); while(v===0) v=Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+    for(let i=0;i<d.length;i+=4){ const n0 = randn()*sigma; const n1 = randn()*sigma; const n2 = randn()*sigma; d[i]  = clamp(d[i]  + n0); d[i+1]= clamp(d[i+1]+ n1); d[i+2]= clamp(d[i+2]+ n2); }
+    return out; }
+  function addSaltPepper(imgData, p){ const w=imgData.width,h=imgData.height; const s=imgData.data; const out=new ImageData(new Uint8ClampedArray(s), w,h); const d=out.data; for(let i=0;i<d.length;i+=4){ const r=Math.random(); if(r<p){ const v = (Math.random()<0.5)?0:255; d[i]=d[i+1]=d[i+2]=v; } } return out; }
+  function addSpeckle(imgData, s){ const w=imgData.width,h=imgData.height; const src=imgData.data; const out=new ImageData(new Uint8ClampedArray(src), w,h); const d=out.data; function randn(){ let u=0,v=0; while(u===0) u=Math.random(); while(v===0) v=Math.random(); return Math.sqrt(-2*Math.log(u))*Math.sin(2*Math.PI*v); }
+    for(let i=0;i<d.length;i+=4){ const n = 1 + randn()*s; d[i]=clamp(d[i]*n); d[i+1]=clamp(d[i+1]*n); d[i+2]=clamp(d[i+2]*n); } return out; }
+  function addUniform(imgData, A){ const w=imgData.width,h=imgData.height; const s=imgData.data; const out=new ImageData(new Uint8ClampedArray(s), w,h); const d=out.data; for(let i=0;i<d.length;i+=4){ const n = (Math.random()*2-1)*A; const n2=(Math.random()*2-1)*A; const n3=(Math.random()*2-1)*A; d[i]=clamp(d[i]+n); d[i+1]=clamp(d[i+1]+n2); d[i+2]=clamp(d[i+2]+n3); } return out; }
+
+  // ===== 2D FFT (radix‑2, auto‑resize to ≤512) =====
+  function nextPow2(n){ return Math.pow(2, Math.ceil(Math.log2(n))); }
+  function fft1d(re, im, inverse = false) {
+    const n = re.length;
+    if (n === 0) return;
+
+    // --- CORRECTED BIT-REVERSAL PERMUTATION ---
+    // This step reorders the input array into the order the FFT algorithm requires.
+    let j = 0;
+    for (let i = 1; i < n; i++) {
+        let bit = n >> 1;
+        while (j & bit) {
+            j ^= bit;
+            bit >>= 1;
+        }
+        j ^= bit;
+        if (i < j) {
+            [re[i], re[j]] = [re[j], re[i]];
+            [im[i], im[j]] = [im[j], im[i]];
+        }
+    }
+
+    // --- COOLEY-TUKEY FFT ALGORITHM ---
+    // This is the core of the transform, performing the butterfly calculations.
+    for (let len = 2; len <= n; len <<= 1) {
+        const halfLen = len >> 1;
+        const angle = (inverse ? 1 : -1) * Math.PI / halfLen;
+        const w_r = Math.cos(angle);
+        const w_i = Math.sin(angle);
+
+        for (let i = 0; i < n; i += len) {
+            let twiddle_r = 1;
+            let twiddle_i = 0;
+            for (let j = 0; j < halfLen; j++) {
+                const k = i + j;
+                const l = k + halfLen;
+
+                const v_r = re[l] * twiddle_r - im[l] * twiddle_i;
+                const v_i = re[l] * twiddle_i + im[l] * twiddle_r;
+
+                re[l] = re[k] - v_r;
+                im[l] = im[k] - v_i;
+                re[k] += v_r;
+                im[k] += v_i;
+                
+                // Update the twiddle factor for the next butterfly
+                const next_twiddle_r = twiddle_r * w_r - twiddle_i * w_i;
+                twiddle_i = twiddle_r * w_i + twiddle_i * w_r;
+                twiddle_r = next_twiddle_r;
+            }
+        }
+    }
+
+    // --- NORMALIZATION FOR INVERSE FFT ---
+    if (inverse) {
+        for (let i = 0; i < n; i++) {
+            re[i] /= n;
+            im[i] /= n;
+        }
+    }
+}
+  function fft2(re2d, im2d, inverse=false){ const h=re2d.length, w=re2d[0].length;
+    for(let y=0;y<h;y++){ fft1d(re2d[y], im2d[y], inverse); }
+    const colRe=new Float32Array(h), colIm=new Float32Array(h);
+    for(let x=0;x<w;x++){ for(let y=0;y<h;y++){ colRe[y]=re2d[y][x]; colIm[y]=im2d[y][x]; } fft1d(colRe, colIm, inverse); for(let y=0;y<h;y++){ re2d[y][x]=colRe[y]; im2d[y][x]=colIm[y]; } }
+  }
+  function shiftSpectrum(mat){ const h=mat.length,w=mat[0].length; const out=Array.from({length:h},()=>new Float32Array(w)); const hx=h>>1, wx=w>>1; for(let y=0;y<h;y++){ for(let x=0;x<w;x++){ const nx=(x+wx)%w, ny=(y+hx)%h; out[ny][nx]=mat[y][x]; } } return out; }
+  function computeDFT(){
+  if(!state.currentData) return;
+
+  const maxSize = 512;
+
+  // 1) Prepare a source canvas (downscale ONLY if needed, with smoothing)
+  const w = state.currentData.width, h = state.currentData.height;
+  let srcCanvas = processedCanvas;
+  let sw = w, sh = h;
+
+  if (w > maxSize || h > maxSize) {
+    const scale = Math.min(maxSize / w, maxSize / h);
+    sw = Math.max(1, Math.floor(w * scale));
+    sh = Math.max(1, Math.floor(h * scale));
+
+    const down = document.createElement('canvas');
+    down.width = sw;
+    down.height = sh;
+    const dctx = down.getContext('2d');
+    dctx.imageSmoothingEnabled = true;          // <-- prevents phase-lock aliasing
+    dctx.drawImage(processedCanvas, 0, 0, sw, sh);
+    srcCanvas = down;
+  }
+
+  // 2) Zero-pad to next power-of-two (NO resampling)
+  const W = nextPow2(sw);
+  const H = nextPow2(sh);
+
+  const tmp = document.createElement('canvas');
+  tmp.width = W;
+  tmp.height = H;
+  const tctx = tmp.getContext('2d');
+
+  // fill padding with black (0)
+  tctx.fillStyle = 'black';
+  tctx.fillRect(0, 0, W, H);
+
+  // draw at 1:1 (top-left). You can center if you want; magnitude won't change.
+  tctx.drawImage(srcCanvas, 0, 0);
+
+  // 3) Read pixels → grayscale planes
+  const img = tctx.getImageData(0, 0, W, H).data;
+  const Re = Array.from({length: H}, () => new Float32Array(W));
+  const Im = Array.from({length: H}, () => new Float32Array(W));
+
+  let k = 0;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const r = img[k], g = img[k + 1], b = img[k + 2];
+      const Y = toGray(r, g, b);
+      Re[y][x] = Y;
+      Im[y][x] = 0;
+      k += 4;
+    }
+  }
+
+  // 4) 2D FFT
+  fft2(Re, Im, false);
+
+  // 5) Magnitude + Phase
+  const Mag = Array.from({length: H}, () => new Float32Array(W));
+  const Ph  = Array.from({length: H}, () => new Float32Array(W));
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const a = Re[y][x], b = Im[y][x];
+      Mag[y][x] = Math.hypot(a, b);
+      Ph[y][x]  = Math.atan2(b, a);
+    }
+  }
+
+  // 6) Shift to center
+  const MagS = shiftSpectrum(Mag);
+  const PhS  = shiftSpectrum(Ph);
+
+  // 7) Normalize AC magnitude (exclude DC center)
+  let maxAcMag = 0;
+  const cx = W >> 1, cy = H >> 1;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (x === cx && y === cy) continue;           // skip DC
+      if (MagS[y][x] > maxAcMag) maxAcMag = MagS[y][x];
+    }
+  }
+
+  // 8) Draw
+  state.dft = { Mag: MagS, Phase: PhS, maxAcMag };
+  redrawDFT();
+}
+  function clearDFT(){ state.dft = null; ctxFA.clearRect(0,0,fftAmp.width,fftAmp.height); ctxFP.clearRect(0,0,fftPhase.width,fftPhase.height); }
+  function redrawDFT(){
+    if(!state.dft) return;
+    drawSpectrum(ctxFA, state.dft.Mag, state.dft.maxAcMag, dftScale?.value || 'linear');
+    drawPhase(ctxFP, state.dft.Phase);
+  }
+  function drawSpectrum(ctx, M, maxForScale, mode='linear'){ 
+    const h=ctx.canvas.height, w=ctx.canvas.width; 
+    ctx.clearRect(0,0,w,h); ctx.fillStyle='#0b1120'; ctx.fillRect(0,0,w,h);
+
+    const H=M.length, W=M[0].length; 
+    const img=ctx.createImageData(w,h); 
+    const d=img.data;
+
+    const maxVal = Math.max(1e-12, maxForScale || 1); // guard against divide-by-zero
+    const denomLog = Math.log1p(maxVal);
+
+    for(let j=0;j<h;j++){
+      for(let i=0;i<w;i++){
+        const x=Math.floor(i*W/w), y=Math.floor(j*H/h);
+        const raw = M[y][x];
+
+        // scale selection
+        let norm;
+        if(mode === 'log'){
+          norm = denomLog > 0 ? Math.log1p(raw) / denomLog : 0;  // log(1+|F|)/log(1+max)
+        } else { // 'linear'
+          norm = raw / maxVal;                                   // |F|/max
+        }
+
+        // gentle gamma for visibility (same as before)
+        const g = Math.round(Math.pow(clamp(norm, 0, 1), 0.45) * 255);
+        const o=(j*w+i)*4; d[o]=d[o+1]=d[o+2]=g; d[o+3]=255;
+      }
+    }
+    ctx.putImageData(img,0,0);
+  }
+  function drawPhase(ctx, P){ const h=ctx.canvas.height, w=ctx.canvas.width; ctx.clearRect(0,0,w,h); ctx.fillStyle='#0b1120'; ctx.fillRect(0,0,w,h);
+    const H=P.length, W=P[0].length; const img=ctx.createImageData(w,h); const d=img.data;
+    for(let j=0;j<h;j++){ for(let i=0;i<w;i++){ const x=Math.floor(i*W/w), y=Math.floor(j*H/h); const v=(P[y][x]+Math.PI)/(2*Math.PI); const g=Math.round(v*255); const o=(j*w+i)*4; d[o]=d[o+1]=d[o+2]=g; d[o+3]=255; } } ctx.putImageData(img,0,0); }
+  $('#btnDFT').addEventListener('click', computeDFT);dftScale?.addEventListener('change', redrawDFT);
+  
+  function makeStripesImageData(ctx, size, orientation = 'horizontal', period = 16, onLen = 8) {
+    const img = ctx.createImageData(size, size);
+    let p = 0;
+
+    if (orientation === 'horizontal') {
+      for (let y = 0; y < size; y++) {
+        const on = (y % period) < onLen;          // which rows are "on" (white)
+        const r = on ? 255 : 0, g = on ? 255 : 0, b = on ? 255 : 0;
+        for (let x = 0; x < size; x++) {
+          img.data[p++] = r;
+          img.data[p++] = g;
+          img.data[p++] = b;
+          img.data[p++] = 255;                    // alpha
+        }
+      }
+    } else { // 'vertical'
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const on = (x % period) < onLen;        // which columns are "on"
+          img.data[p++] = on ? 255 : 0;
+          img.data[p++] = on ? 255 : 0;
+          img.data[p++] = on ? 255 : 0;
+          img.data[p++] = 255;                    // alpha
+        }
+      }
+    }
+    return img;
+  }
+  function drawFilledCircle(ctx, x, y, r) {
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 2*Math.PI); ctx.fill();
+  }
+
+  function drawRing(ctx, x, y, rInner, rOuter) {
+    ctx.beginPath();
+    ctx.arc(x, y, rOuter, 0, 2*Math.PI);
+    ctx.arc(x, y, rInner, 0, 2*Math.PI, true); // punch hole
+    ctx.fill();
+  }
+
+  function drawRotatedRect(ctx, cx, cy, w, h, deg) {
+    const rad = deg * Math.PI / 180;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(rad);
+    ctx.fillRect(-w/2, -h/2, w, h);
+    ctx.restore();
+  }
+
+  function putSinglePixel(imgData, x, y, v=255) {
+    if (x<0||y<0||x>=imgData.width||y>=imgData.height) return;
+    const i = (y*imgData.width + x)*4;
+    const d = imgData.data;
+    d[i]=d[i+1]=d[i+2]=v; d[i+3]=255;
+  }
+  // ===== Pattern Generator =====
+  function generatePattern() {
+      const pattern = patternSelect.value;
+      const size = 512;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = 'black';
+      ctx.fillRect(0, 0, size, size);
+      const cx = size / 2, cy = size / 2;
+
+      switch (pattern) {
+          case 'vertical_stripes': {
+              // 16-px period, 8-px “on” width (same as your old 8/16)
+              const img = makeStripesImageData(ctx, size, 'vertical', 16, 8);
+              ctx.putImageData(img, 0, 0);
+              break;
+          }
+          case 'horizontal_stripes': {
+              // 16-px period, 8-px “on” height
+              const img = makeStripesImageData(ctx, size, 'horizontal', 16, 8);
+              ctx.putImageData(img, 0, 0);
+              break;
+          }
+          case 'tilted_stripes':
+              const angle = parseFloat(stripeAngleInput.value) * Math.PI / 180;
+              // Calculate a coverage area that is guaranteed to cover the canvas corners after rotation
+              const coverage = Math.sqrt(size * size + size * size);
+              ctx.save();
+              ctx.translate(cx, cy); // Move origin to the center of the canvas
+              ctx.rotate(angle);     // Rotate the coordinate system
+              ctx.fillStyle = 'white';
+              // Draw stripes centered around the new, rotated origin
+              for (let i = -coverage / 2; i < coverage / 2; i += 16) {
+                  // Draw a very tall rectangle to ensure it covers the height of the canvas
+                  ctx.fillRect(i, -coverage / 2, 8, coverage);
+              }
+              ctx.restore();
+              break;
+          case 'grid':
+              ctx.fillStyle = 'white';
+              for (let i = 0; i < size; i += 16) { ctx.fillRect(i, 0, 8, size); ctx.fillRect(0, i, size, 8); }
+              break;
+          case 'large_circle':
+              ctx.fillStyle = 'white';
+              ctx.beginPath(); ctx.arc(cx, cy, size / 4, 0, 2 * Math.PI); ctx.fill();
+              break;
+          case 'small_circle':
+              ctx.fillStyle = 'white';
+              ctx.beginPath(); ctx.arc(cx, cy, size / 16, 0, 2 * Math.PI); ctx.fill();
+              break;
+          case 'large_square':
+              ctx.fillStyle = 'white';
+              ctx.fillRect(size/4, size/4, size/2, size/2);
+              break;
+          case 'small_square':
+              ctx.fillStyle = 'white';
+              ctx.fillRect(cx - size / 16, cy - size / 16, size / 8, size / 8);
+              break;
+          case 'sine_wave':
+              const imgData = ctx.createImageData(size, size);
+              const d = imgData.data;
+              for (let y = 0; y < size; y++) {
+                  for (let x = 0; x < size; x++) {
+                      const v = 127.5 * (1 + Math.sin(x * 0.2));
+                      const i = (y * size + x) * 4;
+                      d[i] = d[i+1] = d[i+2] = v; d[i+3] = 255;
+                  }
+              }
+              ctx.putImageData(imgData, 0, 0);
+              break;
+          case 'diagonal':
+              ctx.strokeStyle = 'white'; ctx.lineWidth = 10;
+              ctx.beginPath(); ctx.moveTo(0, size); ctx.lineTo(size, 0); ctx.stroke();
+              break;
+          case 'two_circles': {
+            ctx.fillStyle = 'white';
+            // Two equal circles placed left/right from center
+            drawFilledCircle(ctx, cx - size*0.20, cy, size*0.12);
+            drawFilledCircle(ctx, cx + size*0.20, cy, size*0.12);
+            break;
+          }
+
+          case 'offcenter_circle': {
+            ctx.fillStyle = 'white';
+            // Intentionally off-center to show shift property in 2DFT
+            drawFilledCircle(ctx, Math.floor(size*0.33), Math.floor(size*0.67), size*0.14);
+            break;
+          }
+
+          case 'ring': {
+            ctx.fillStyle = 'white';
+            // A thin annulus (great for showing high-frequency band)
+            const rOuter = size*0.28, rInner = size*0.22;
+            drawRing(ctx, cx, cy, rInner, rOuter);
+            break;
+          }
+
+          case 'checkerboard': {
+            // Alternating black/white squares (strong, sparse spectrum)
+            const cell = parseInt(document.getElementById('cbCell')?.value || '40', 10);
+            for (let y = 0; y < size; y += cell) {
+              for (let x = 0; x < size; x += cell) {
+                const on = ((x/cell) + (y/cell)) % 2 === 0;
+                ctx.fillStyle = on ? 'white' : 'black';
+                ctx.fillRect(x, y, cell, cell);
+              }
+            }
+            break;
+          }
+
+          case 'gaussian_blob': {
+            // Smooth grayscale Gaussian (shows how “blobby” spatial -> narrow freq)
+            const imgData = ctx.createImageData(size, size);
+            const d = imgData.data;
+            // Off-center mean
+            const muX = size*0.65, muY = size*0.35;
+            const sigma = size*0.09; // try wider/narrower
+            const A = 255;           // peak
+            let p = 0;
+            for (let y = 0; y < size; y++) {
+              for (let x = 0; x < size; x++) {
+                const dx = x - muX, dy = y - muY;
+                const val = A * Math.exp(-(dx*dx + dy*dy) / (2*sigma*sigma));
+                const v = Math.max(0, Math.min(255, Math.round(val)));
+                d[p++] = v; d[p++] = v; d[p++] = v; d[p++] = 255;
+              }
+            }
+            ctx.putImageData(imgData, 0, 0);
+            break;
+          }
+
+          case 'rotated_square': {
+            const ang = parseFloat(document.getElementById('sqAngle')?.value || '30');
+            ctx.fillStyle = 'white';
+            drawRotatedRect(ctx, cx, cy, size*0.45, size*0.45, ang);
+            break;
+          }
+
+          case 'delta_pair': {
+            // Two bright single-pixel impulses (super useful in 2DFT)
+            const imgData = ctx.getImageData(0, 0, size, size); // currently black
+            // Put pixels at two arbitrary non-symmetric locations
+            putSinglePixel(imgData, Math.floor(size*0.25), Math.floor(size*0.30), 255);
+            putSinglePixel(imgData, Math.floor(size*0.72), Math.floor(size*0.70), 255);
+            ctx.putImageData(imgData, 0, 0);
+            break;
+          }
+      }
+
+      const img = new Image();
+      img.onload = () => { state.img = img; drawImage(img); };
+      img.onerror = () => alert('Could not generate pattern.');
+      img.src = canvas.toDataURL();
+  }
+  
+  function togglePatternControls() {
+    const p = patternSelect.value;
+    const wrap = patternExtra;
+    wrap.innerHTML = '';
+    wrap.style.display = 'none';
+
+    if (p === 'tilted_stripes') {
+      wrap.style.display = 'block';
+      wrap.innerHTML = `
+        <label for="stripeAngle">Angle (°)</label>
+        <input type="number" id="stripeAngle" value="${stripeAngleInput?.value||30}" step="5">
+      `;
+    } else if (p === 'checkerboard') {
+      wrap.style.display = 'block';
+      wrap.innerHTML = `
+        <label for="cbCell">Cell size (px)</label>
+        <input type="number" id="cbCell" value="40" min="2" max="128" step="2">
+      `;
+    } else if (p === 'rotated_square') {
+      wrap.style.display = 'block';
+      wrap.innerHTML = `
+        <label for="sqAngle">Angle (°)</label>
+        <input type="number" id="sqAngle" value="30" step="1">
+      `;
+    }
+  }
+
+  $('#generatePattern').addEventListener('click', generatePattern);
+  patternSelect.addEventListener('change', togglePatternControls);
+
+  // ===== Init =====
+  populateFilterSelect();
+  togglePatternControls();
+  generatePattern(); // Load the default pattern on start
+  </script>
+</body>
+</html>
+
