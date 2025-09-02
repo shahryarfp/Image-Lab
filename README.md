@@ -11,7 +11,7 @@ Built with plain HTML, CSS, and JavaScript — no external frameworks required.
 
 ---
 
-## 📸 Preview
+## Preview
 
 ![App Screenshot](./image.png)  
 
