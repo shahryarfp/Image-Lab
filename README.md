@@ -5,7 +5,7 @@ Built with plain HTML, CSS, and JavaScript — no external frameworks required.
 
 ---
 
-## 🚀 Live Demo
+## Live Demo
 
 👉 [Try Image Lab here](https://shahryarfp.github.io/Image-Lab/)
 
@@ -17,7 +17,7 @@ Built with plain HTML, CSS, and JavaScript — no external frameworks required.
 
 ---
 
-## ✨ Features
+## Features
 
 - Load your own images or generate synthetic patterns (stripes, circles, squares, etc.)
 - Apply **point operators** (negative, gamma, brightness/contrast, thresholding, etc.)
